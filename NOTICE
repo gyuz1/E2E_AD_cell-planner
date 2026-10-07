@@ -1,0 +1,24 @@
+Cell Planner
+Copyright 2026 Gyuwan Choe
+
+This product includes software developed as part of the following projects,
+each distributed under the Apache License, Version 2.0:
+
+  VAD -- Vectorized Scene Representation for Efficient Autonomous Driving
+  Copyright Huazhong University of Science and Technology (hustvl)
+  https://github.com/hustvl/VAD
+
+  LAW -- Enhancing End-to-End Autonomous Driving with Latent World Model
+  https://github.com/BraveGroup/LAW
+
+The perception stack, BEV encoder, transformer modules and much of the
+training scaffolding under projects/mmdet3d_plugin/ and tools/ derive from
+those projects. Modifications made here are described in README.md and
+docs/experiments.md, and are concentrated in:
+
+  projects/mmdet3d_plugin/VAD/VAD_head.py
+  projects/mmdet3d_plugin/VAD/VAD.py
+  projects/mmdet3d_plugin/LAW/VAD_LAW.py
+
+VAD and LAW in turn build on MMDetection3D, MMDetection, MMSegmentation and
+MMCV (OpenMMLab), also Apache License 2.0.

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Checkpoints and data -- these live on the Hub, not here
+*.pth
+*.pkl
+*.npy
+ckpts/
+data/
+work_dirs/
+
+# Outputs
+*.log
+*.json
+!submissions/*.json
+*.zip
+*.csv
+wandb/
+runs/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

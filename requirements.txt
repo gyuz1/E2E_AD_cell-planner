@@ -1,0 +1,40 @@
+# Versions this was trained and evaluated with.
+#
+# torch, mmcv-full and mmdet3d are NOT installed from here -- torch needs the
+# cu128 index and mmdet3d is built from source. See docs/install.md.
+#
+#   pip install torch==2.7.1 torchvision==0.22.1 \
+#       --index-url https://download.pytorch.org/whl/cu128
+#   pip install mmcv-full==1.4.0
+#   git clone https://github.com/open-mmlab/mmdetection3d.git
+#   cd mmdetection3d && git checkout v0.17.1 && pip install -v -e .
+
+mmdet==2.14.0
+mmsegmentation==0.14.1
+
+numpy==1.26.4
+scipy==1.15.3
+numba==0.59.1
+pandas==2.3.3
+pyarrow==24.0.0
+Pillow==12.2.0
+opencv-python==4.8.1.78
+scikit-image==0.25.2
+matplotlib==3.7.5
+
+nuscenes-devkit==1.1.9
+pyquaternion==0.9.9
+shapely==2.1.2
+similaritymeasures==1.4.0
+descartes==1.1.0
+plyfile==1.1.3
+trimesh==4.12.2
+networkx==3.4.2
+
+timm==0.6.13
+einops
+tensorboard==2.20.0
+terminaltables==3.1.10
+prettytable==3.17.0
+tqdm==4.68.2
+yapf==0.40.1
