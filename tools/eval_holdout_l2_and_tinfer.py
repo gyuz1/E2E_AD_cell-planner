@@ -38,7 +38,10 @@ from mmcv.runner import load_checkpoint, wrap_fp16_model
 from mmdet3d.datasets import build_dataset
 from mmdet3d.models import build_model
 
-from projects.mmdet3d_plugin.VAD.cell_planner_utils import route_trajectory
+from mmdet3d.core.bbox import LiDARInstance3DBoxes
+from projects.mmdet3d_plugin.VAD.planner.metric_stp3 import PlanningMetric
+from projects.mmdet3d_plugin.VAD.cell_planner_utils import (
+    containing_cell, route_trajectory)
 from projects.mmdet3d_plugin.VAD.goal_anchor_utils import nearest_valid_goal
 
 HIS_FRAMES = 30
@@ -72,6 +75,108 @@ def reset_stream(model):
     model.prev_frame_info = {
         'prev_bev': None, 'prev_bev2': None, 'prev_bev_pristine': None,
         'scene_token': None, 'prev_pos': 0, 'prev_angle': 0}
+
+
+
+def _occupancy_from_info(info, use_valid_flag=True):
+    """Rebuild the agent occupancy grid STP3's collision metric scores against.
+
+    Assembled from the annotation record directly rather than from the
+    pipeline, because the fast-eval configs deliberately do not collect GT
+    boxes -- they exist to time a forward pass. Same construction the dataset
+    uses (nuscenes_vad_dataset.get_ann_info): boxes widened by velocity to
+    nine columns, and the 34-column agent feature in the order
+    fut_traj(12) + fut_mask(6) + goal(1) + lcf_feat(9) + fut_yaw(6).
+
+    Returns None when the frame has no valid agent, which is not an error --
+    an empty grid cannot be collided with, and those frames are excluded
+    from the collision denominator rather than counted as collision-free.
+    """
+    mask = info['valid_flag'] if use_valid_flag else info['num_lidar_pts'] > 0
+    boxes = np.asarray(info['gt_boxes'])[mask]
+    if boxes.shape[0] == 0:
+        return None
+    vel = np.asarray(info['gt_velocity'])[mask].copy()
+    vel[np.isnan(vel[:, 0])] = 0.0
+    boxes = np.concatenate([boxes, vel], axis=-1)
+    boxes = LiDARInstance3DBoxes(boxes, box_dim=boxes.shape[-1],
+                                 origin=(0.5, 0.5, 0.5))
+    feats = np.concatenate([
+        np.asarray(info['gt_agent_fut_trajs'])[mask],
+        np.asarray(info['gt_agent_fut_masks'])[mask],
+        np.asarray(info['gt_agent_fut_goal'])[mask][..., None],
+        np.asarray(info['gt_agent_lcf_feat'])[mask],
+        np.asarray(info['gt_agent_fut_yaw'])[mask],
+    ], axis=-1).astype(np.float32)
+
+    pm = _occupancy_from_info.metric
+    segmentation, pedestrian = pm.get_label(boxes, torch.from_numpy(feats)[None])
+    return torch.logical_or(segmentation, pedestrian)
+
+
+_occupancy_from_info.metric = PlanningMetric()
+
+# PlanningMetric ships nuScenes' 23-class vocabulary (human 2-8, vehicle
+# 14-23) and draws an agent into the occupancy grid only if its category
+# index falls in one of those lists. ETRI has three classes -- Car 0,
+# Pedestrian 1, Cyclist 2 -- so under the stock mapping Car and Pedestrian
+# match nothing and the grid comes out EMPTY. Collision then reads 0.0000
+# everywhere, which looks like a result and is not one.
+_occupancy_from_info.metric.category_index = {
+    'vehicle': [0, 2],   # Car, Cyclist -- both occupy a vehicle-sized box
+    'human': [1],        # Pedestrian
+}
+
+
+def _collision_at(pm, occupancy, pred_cum, gt_cum):
+    """obj / obj_box collision at 1s, 2s, 3s, the way VAD reports them.
+
+    VAD truncates the trajectory to the horizon and averages the per-step
+    collisions inside it, so a 1s number is over two steps and a 3s number
+    over six. Kept identical so these are comparable with published tables.
+    """
+    pred = torch.as_tensor(pred_cum, dtype=torch.float32)[None]
+    gt = torch.as_tensor(gt_cum, dtype=torch.float32)[None]
+    out = np.zeros((2, 3))
+    for i in range(3):
+        t = (i + 1) * 2
+        obj, obj_box = pm.evaluate_coll(pred[:, :t], gt[:, :t], occupancy)
+        out[0, i] = obj.mean().item()
+        out[1, i] = obj_box.mean().item()
+    return out
+
+
+def _official_l2(pred, gt):
+    """The same aggregation the report uses: mean of the 1s/2s/3s means."""
+    d = np.linalg.norm(pred - gt, axis=-1)
+    return float(np.mean([d[:2].mean(), d[:4].mean(), d[:6].mean()]))
+
+
+def _oracle_over_cells(cell_trajs, mode, gt):
+    """Best candidate of the command's own cells -- the candidate-set ceiling.
+
+    cell_trajs[mode] is [Nf, Nl, T, 2] of per-step deltas, so each candidate
+    becomes a position sequence by cumsum, exactly as the selected one does.
+    Returns (best L2, best index, candidate count) or None when the command
+    has no cells (U_TURN / STOP use their own heads).
+    """
+    t = cell_trajs.get(mode)
+    if t is None:
+        return None
+    cand = t.reshape(-1, t.shape[-2], t.shape[-1]).cpu().double().cumsum(-2).numpy()
+    l2 = [_official_l2(c, gt) for c in cand]
+    k = int(np.argmin(l2))
+    return l2[k], k, len(l2)
+
+
+def _cell_bounds(tp, fwd_edges, lat_edges):
+    """Closed interval of the cell containing tp, clipped to the grid."""
+    r, c, _ = containing_cell(tp.reshape(1, -1), fwd_edges, lat_edges)
+    r, c = int(r[0]), int(c[0])
+    fe, le = fwd_edges.numpy(), lat_edges.numpy()
+    r = min(r, len(fe) - 2)
+    c = min(c, len(le) - 2)
+    return (r, c), (fe[r], fe[r + 1]), (le[c], le[c + 1])
 
 
 def parse_frame_offsets(spec):
@@ -113,6 +218,32 @@ def parse_args():
              f'7-frame stream "-30,-25,-20,-15,-10,-5,0" for comparison.')
     parser.add_argument('--fp16', action='store_true',
                          help='run inference in fp16 via mmcv.wrap_fp16_model')
+    parser.add_argument(
+        '--collision', action='store_true',
+        help='also score STP3 obj / obj_box collision against the GT agent '
+             'boxes. Off by default because building the occupancy grid per '
+             'window costs real time and would contaminate T_infer -- run it '
+             'in a separate pass from any latency measurement.')
+    parser.add_argument(
+        '--oracle-select', action='store_true',
+        help='also score the best candidate among the command\'s cells. '
+             'Separates candidate-set quality from selection quality; needs '
+             'a cell planner. Costs CPU per window, so keep it out of any '
+             'latency measurement.')
+    parser.add_argument(
+        '--tp-perturb', action='store_true',
+        help='re-select with the target point moved inside its own cell '
+             '(cell centre and four inset corners). Proposition 1 says the '
+             'trajectory must not change at all; this measures whether it '
+             'does. Cell planner only.')
+    parser.add_argument(
+        '--tp-perturb-sigma', type=float, default=0.0,
+        help='additionally re-select with isotropic Gaussian noise of this '
+             'sigma (m) on the target point, reporting the error split by '
+             'whether the selected cell changed. 0 disables.')
+    parser.add_argument(
+        '--tp-perturb-seed', type=int, default=0,
+        help='seed for --tp-perturb-sigma, so the perturbation is reproducible')
     parser.add_argument('--warmup-windows', type=int, default=5,
                          help='untimed windows run (per config) before '
                               'L2/T_infer recording starts')
@@ -226,6 +357,19 @@ def run_config(model, dataset, scenes, stream_offsets, args):
     band_edges = (1.0, 9.0)
     band_sums = np.zeros((3, 3))
     band_n = np.zeros(3, dtype=int)
+    # Collision is counted over the frames that actually have an agent to hit,
+    # so it carries its own denominator rather than reusing n_eval.
+    coll_sums = np.zeros((2, 3))
+    n_coll = 0
+    # oracle: candidate-set ceiling. invar: Proposition 1 check.
+    orc_sums = np.zeros(2)          # [oracle L2, selected L2] over the same frames
+    n_orc = 0
+    orc_hit = 0                     # selection picked the best candidate
+    invar_n = invar_bad = 0
+    invar_max = 0.0                 # worst |pred - pred_perturbed| seen, metres
+    sig_same = np.zeros(2); n_sig_same = 0   # [L2 base, L2 perturbed]
+    sig_diff = np.zeros(2); n_sig_diff = 0
+    sig_rng = np.random.default_rng(args.tp_perturb_seed)
     head = model.module.pts_bbox_head
     if getattr(head, 'cell_planner', False):
         if not args.select_cell_by_tp:
@@ -233,6 +377,10 @@ def run_config(model, dataset, scenes, stream_offsets, args):
         cell_edges = {c: (f.cpu(), l.cpu()) for c, (f, l) in head.cell_edges().items()}
     elif args.select_cell_by_tp:
         raise SystemExit('--select-cell-by-tp needs a cell planner config')
+    if (args.oracle_select or args.tp_perturb or args.tp_perturb_sigma > 0) \
+            and not args.select_cell_by_tp:
+        raise SystemExit('--oracle-select / --tp-perturb need a cell planner '
+                         'scored with --select-cell-by-tp')
 
     for scene_token, sample_ids in mmcv.track_iter_progress(list(scenes.items())):
         frame_to_gi = {
@@ -366,10 +514,75 @@ def run_config(model, dataset, scenes, stream_offsets, args):
                 pred = sel[0].double().cumsum(0).numpy()
             gt = np.array(info['gt_ego_fut_trajs'], dtype=np.float64).cumsum(0)
 
+            if args.select_cell_by_tp and (args.oracle_select or args.tp_perturb
+                                           or args.tp_perturb_sigma > 0):
+                pb = result[0]['pts_bbox']
+                ctr = {c: t[None].float() for c, t in pb['cell_trajs'].items()}
+                ut = pb['cell_u_turn'][None].float()
+                st = pb['cell_stop'][None].float()
+                tp0 = np.asarray(info['gt_ego_target_point'],
+                                 dtype=np.float32).reshape(-1)[:2]
+
+                def _reselect(xy):
+                    sel2, _ = route_trajectory(
+                        ctr, ut, st,
+                        torch.as_tensor(np.asarray(xy, dtype=np.float32)).reshape(1, -1),
+                        torch.tensor([mode]), cell_edges, head.cell_stop_tp_thresh)
+                    return sel2[0].double().cumsum(0).numpy()
+
+                if args.oracle_select:
+                    o = _oracle_over_cells(pb['cell_trajs'], mode, gt)
+                    if o is not None:
+                        orc_sums += (o[0], _official_l2(pred, gt))
+                        n_orc += 1
+                        # did TP selection land on the best candidate?
+                        sel_l2 = _official_l2(pred, gt)
+                        if abs(sel_l2 - o[0]) < 1e-9:
+                            orc_hit += 1
+
+                # Proposition 1: any target point inside the same cell must
+                # give the identical trajectory. Only meaningful when the
+                # sample actually routes through a cell -- a STOP/U_TURN route
+                # ignores the cell grid, so it would pass trivially.
+                routes_cell = (mode in cell_edges
+                               and float(np.linalg.norm(tp0)) >= head.cell_stop_tp_thresh)
+                if args.tp_perturb and routes_cell:
+                    fe, le = cell_edges[mode]
+                    _, (f0, f1), (l0, l1) = _cell_bounds(
+                        torch.as_tensor(tp0), fe, le)
+                    ef, el = 0.02 * (f1 - f0), 0.02 * (l1 - l0)
+                    probes = [((f0 + f1) / 2, (l0 + l1) / 2),
+                              (f0 + ef, l0 + el), (f1 - ef, l0 + el),
+                              (f0 + ef, l1 - el), (f1 - ef, l1 - el)]
+                    worst = max(float(np.abs(_reselect(q) - pred).max())
+                                for q in probes)
+                    invar_n += 1
+                    invar_max = max(invar_max, worst)
+                    if worst > 0.0:
+                        invar_bad += 1
+
+                if args.tp_perturb_sigma > 0 and routes_cell:
+                    fe, le = cell_edges[mode]
+                    cell0, _, _ = _cell_bounds(torch.as_tensor(tp0), fe, le)
+                    q = tp0 + sig_rng.normal(0.0, args.tp_perturb_sigma, size=2)
+                    cell1, _, _ = _cell_bounds(torch.as_tensor(q.astype(np.float32)), fe, le)
+                    pair = (_official_l2(pred, gt), _official_l2(_reselect(q), gt))
+                    if cell1 == cell0:
+                        sig_same += pair; n_sig_same += 1
+                    else:
+                        sig_diff += pair; n_sig_diff += 1
+
             dist = np.linalg.norm(pred - gt, axis=-1)
             sample_l2 = np.array([dist[:2].mean(), dist[:4].mean(), dist[:6].mean()])
             l2_sums += sample_l2
             n_eval += 1
+
+            if args.collision:
+                occ = _occupancy_from_info(info, dataset.use_valid_flag)
+                if occ is not None:
+                    coll_sums += _collision_at(
+                        _occupancy_from_info.metric, occ, pred, gt)
+                    n_coll += 1
 
             cmd_valid[gt_cmd_idx] += 1
             cmd_l2_sums[gt_cmd_idx] += sample_l2
@@ -378,7 +591,12 @@ def run_config(model, dataset, scenes, stream_offsets, args):
 
     return dict(l2_sums=l2_sums, n_eval=n_eval, n_skipped=n_skipped,
                 cmd_all=cmd_all, cmd_valid=cmd_valid, cmd_l2_sums=cmd_l2_sums,
-                window_total_ms=window_total_ms, band_sums=band_sums, band_n=band_n)
+                window_total_ms=window_total_ms, band_sums=band_sums, band_n=band_n,
+                coll_sums=coll_sums, n_coll=n_coll,
+                orc_sums=orc_sums, n_orc=n_orc, orc_hit=orc_hit,
+                invar_n=invar_n, invar_bad=invar_bad, invar_max=invar_max,
+                sig_same=sig_same, n_sig_same=n_sig_same,
+                sig_diff=sig_diff, n_sig_diff=n_sig_diff)
 
 
 def main():
@@ -484,6 +702,47 @@ def main():
         print(f'  L2@2s : {l2[1]:.6f} m')
         print(f'  L2@3s : {l2[2]:.6f} m')
         print(f'  Final Planning L2 avg: {l2.mean():.6f} m')
+
+        if r['n_coll']:
+            c = r['coll_sums'] / r['n_coll']
+            print()
+            print(f'Collision (STP3), over {r["n_coll"]} frames that have an agent:')
+            print(f"  {'':<10}{'1s':>10}{'2s':>10}{'3s':>10}{'avg':>10}")
+            for i, name in enumerate(('obj', 'obj_box')):
+                print(f'  {name:<10}{c[i,0]:>10.4f}{c[i,1]:>10.4f}'
+                      f'{c[i,2]:>10.4f}{c[i].mean():>10.4f}')
+        elif args.collision:
+            print()
+            print('Collision: no evaluated frame carried a valid agent box.')
+
+        if r['n_orc']:
+            o, sel = r['orc_sums'] / r['n_orc']
+            loss = (sel - o) / sel * 100.0 if sel else 0.0
+            print()
+            print(f'Candidate set vs selection, over {r["n_orc"]} cell-routed frames:')
+            print(f'  oracle (best candidate)   {o:.6f} m')
+            print(f'  selected by target point  {sel:.6f} m')
+            print(f'  selection loss            {loss:.1f}%  '
+                  f'(picked the best candidate on {r["orc_hit"]}/{r["n_orc"]} frames)')
+
+        if r['invar_n']:
+            print()
+            print(f'Proposition 1 -- target point moved inside its own cell, '
+                  f'{r["invar_n"]} cell-routed frames, 5 probes each:')
+            print(f'  frames whose trajectory changed  {r["invar_bad"]}')
+            print(f'  worst |delta| over all waypoints {r["invar_max"]:.3e} m')
+            print('  (exactly 0 is the predicted result; anything else '
+                  'contradicts the proposition)')
+
+        if r['n_sig_same'] or r['n_sig_diff']:
+            print()
+            print(f'Target point perturbed by sigma={args.tp_perturb_sigma} m:')
+            for nm, acc, n in (('same cell', r['sig_same'], r['n_sig_same']),
+                               ('cell changed', r['sig_diff'], r['n_sig_diff'])):
+                if n:
+                    base, pert = acc / n
+                    print(f'  {nm:<13} n={n:<5} L2 {base:.6f} -> {pert:.6f} '
+                          f'(delta {pert - base:+.6f})')
 
         print()
         print('----------- ETRI Planning L2 by Command -----------')

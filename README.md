@@ -9,12 +9,16 @@
 
 ETRI 2026 Autonomous Driving Challenge · E2E Driving track
 
+**`split` branch** — the 301 / 75 lineage the design decisions were measured on.
+`main` trains on all 376 scenes.
+
 </div>
 
 ## Table of Contents
 
 - [Introduction](#introduction)
 - [Results](#results)
+- [Split lineage](#split-lineage)
 - [Model Zoo](#model-zoo)
 - [Getting Started](#getting-started)
 - [Repository](#repository)
@@ -70,6 +74,31 @@ Frame count against inference cost — fp16 with `--bev-only-history`, RTX 3090:
 
 Full record of measurements, abandoned directions, and the silent-failure bugs:
 [`docs/experiments.md`](docs/experiments.md).
+
+## Split lineage
+
+`main`'s released checkpoints train on all 376 scenes, so a held-out split sits inside
+their training set and an ablation measured there says nothing. This branch adds the
+301 / 75 lineage, where the 75 scenes stay out and the ablations are real.
+
+| Model | Moving cells | L2 (3s avg) | Collision |
+|---|---|---|---|
+| No cell planner, no distillation | — | 0.3181 | 0.58% |
+| Cell planner | 105 | 0.2573 | 0.63% |
+| Distillation only | — | 0.4491 | 0.57% |
+| **Cell planner + distillation** | 105 | **0.2577** | **0.41%** |
+| Teacher (reads real ego state) | 105 | 0.2052 | 0.60% |
+| Constant-acceleration extrapolation, no images | — | 0.2725 | 0.91% |
+
+Distillation does not move displacement error — 0.2573 to 0.2577 is nothing. It moves
+collision, 0.63% to 0.41%, and only when the cell planner is there: on its own it takes
+0.3181 to 0.4491. And a blind constant-acceleration extrapolator beats the vision
+baseline on L2 while colliding 1.6x as often, which is why the collision column is not
+optional here.
+
+Configs are under [`configs/split/`](configs/split/), with the lineage, the collision
+metric's unusable `obj` column, the two-frame failure and the per-cell scene floor written
+up in [`docs/split_experiments.md`](docs/split_experiments.md).
 
 ## Model Zoo
 
@@ -129,6 +158,8 @@ python tools/check_accel_block_live.py configs/nokd.py
 ```
 configs/                one flat file per model; the research repo had a 19-deep chain
   eval/                 evaluation counterpart of each
+  split/                the 301 / 75 lineage -- see docs/split_experiments.md
+    eval/               evaluation counterpart of each
 projects/mmdet3d_plugin/
 tools/                  train, evaluate, submit, audit
   analysis/             the measurements in docs/experiments.md
