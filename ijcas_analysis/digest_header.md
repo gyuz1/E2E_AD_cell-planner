@@ -175,6 +175,11 @@ nocell(mode planner) 요점: E_lon 0.304→0.212, E_lat 0.072→0.076(실측 투
 - command별(105 실측 CV) 변화 CI: LK [−0.098, −0.042], LCL [−0.578, −0.031], LCR [−0.242, +0.005], TL [−0.062, −0.004], TR [−0.098, −0.025].
 - 제어기 포함 CV vs 학습 계획: 추종·jerk·포화 차이 CI 세 planner 모두 0 제외. 등가속 외삽 실행 오차 0.280(jerk 0.05).
 
+### 1.15 10 Hz 상태 추정 오차의 시간 구조 (temporal_state_cell105.json, lk60_s1, 18911 이동 프레임)
+- 속도 추정 오차 RMS 0.197, 자기상관 0.1 s 0.88 / 0.5 s 0.66 / 1 s 0.47 / 2 s 0.28, 분산의 21%가 scene별 상수 오프셋.
+- 가속도 오차 RMS 0.056 (0.5 s 0.43), 요레이트 오차 RMS 0.0125 (0.5 s 0.70).
+- 계획 속도 불일치 e_v: RMS 0.37, 자기상관 0.5 s 0.84 / 1 s 0.69, 분산의 36%가 scene 오프셋, 같은 프레임 속도 추정 오차와 상관 0.42.
+
 ## 2. 제어기 포함 평가 (closed loop, 비반응 재생)
 - 평가 plant는 투영 모델과 다르게 설정: 동역학 single-track, 선형 타이어 μ=0.9 포화, 3–5 m/s에서 운동학 모델과 혼합, 지연 τ_a 0.3 s / τ_δ 0.1 s, a∈[−6, 3], 조향속도 0.6 rad/s.
 - 제어기 50 Hz, feedforward + feedback. 게인은 실제 주행 궤적 600창에서만 조정(계획 미사용). 공통 cubic spline 기준.
@@ -198,7 +203,6 @@ nocell(mode planner) 요점: E_lon 0.304→0.212, E_lat 0.072→0.076(실측 투
 
 ## 4. 아직 안 한 것
 - KKT/음함수 정리 기반 해석적 민감도(지금은 유한차분).
-- 10 Hz 전 프레임 덤프(GPU0에서 실행 중, `LAW_split/work_dirs/ijcas_dump/lk60_s1.npz`) → 상태 추정 오차의 시간 상관.
 
 ## 5. 파일
 - 스크립트: `analysis/deep_analysis.py`, `closedloop_sim.py`, `closedloop_sweep.py`, `weight_select_train.py`, `final_tables.py`
