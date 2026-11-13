@@ -1,5 +1,5 @@
 """fig_example.pdf: two held-out windows driven by the same controller with the learned plan and with
-the projected plan (weights selected on training scenes). Windows are chosen by rule, not by gain:
+the projected plan (measured state, weights from scene cross-validation). Windows are chosen by rule, not by gain:
 among windows whose learned plan starts >1.5 m/s away from the measured speed, the one with the
 median closed-loop change, for lane keeping and for a lane change.
 usage: plot_closedloop.py <heldout_dump.npz> <tag>"""
@@ -13,7 +13,7 @@ plt.rcParams.update({'font.family': 'serif', 'font.size': 8, 'axes.linewidth': 0
 dump, tag = sys.argv[1], sys.argv[2]
 d = np.load(dump); idx = np.where(d['mode'] <= 4)[0]
 pred = d['pred'][idx].astype(float); gt = d['gt'][idx].astype(float); lcf = d['ego_lcf'][idx].astype(float); cmd = d['mode'][idx]
-Pp = np.load(R + f'proj_trainsel_{tag}.npy'); g = json.load(open(R + 'closedloop_gains.json'))['gains']; x0 = cl.initial(lcf)
+Pp = np.load(R + f'deep_{tag}.npz')['P_meas_cv']; g = json.load(open(R + 'closedloop_gains.json'))['gains']; x0 = cl.initial(lcf)
 m0, pos0, a0, _ = cl.metrics(pred, gt, x0, g); m1, pos1, a1, _ = cl.metrics(Pp, gt, x0, g)
 mis = np.abs(quantities(pred)['v'][:, 0] - lcf[:, 7]) > 1.5
 dE = m1['E_exec'] - m0['E_exec']
@@ -23,7 +23,7 @@ picks = [median_pick(cmd == 0), median_pick((cmd == 1) | (cmd == 2))]
 t = cl.TT; tw = np.arange(6) * 0.5 + 0.25
 def speed(pos):
     v = np.linalg.norm(np.diff(pos, axis=0), axis=1) / cl.DT
-    k = 20; return np.convolve(v, np.ones(k) / k, mode='same')
+    k = 20; vp = np.pad(v, (k // 2, k - 1 - k // 2), mode='edge'); return np.convolve(vp, np.ones(k) / k, mode='valid')
 fig, ax = plt.subplots(2, 2, figsize=(7.0, 4.0), sharex=True)
 for j, ((k, nc), title) in enumerate(zip(picks, ('Lane keeping', 'Lane change'))):
     a = ax[0, j]
@@ -34,8 +34,7 @@ for j, ((k, nc), title) in enumerate(zip(picks, ('Lane keeping', 'Lane change'))
     a.plot(tw, quantities(gt[k][None])['v'][0], '^:', color='0.55', ms=3.2, lw=0.9, mfc='white', label='Recorded driving')
     a.plot([0], [lcf[k, 7]], 'x', ms=6, color='0.0', label=r'Measured speed $v_0$')
     a.set_ylabel('Speed (m/s)')
-    a.set_title(f'{title}: executed $E_{{\\mathrm{{plan}}}}$ {m0["E_exec"][k]:.2f} m $\\rightarrow$ {m1["E_exec"][k]:.2f} m, '
-                f'tracking RMS {m0["track_rms"][k]*100:.0f} $\\rightarrow$ {m1["track_rms"][k]*100:.0f} cm', fontsize=7)
+    a.set_title(title, fontsize=8)
     b = ax[1, j]
     b.plot(t, a0[k], '-', color='0.0', lw=1.0, label='Executed, learned plan')
     b.plot(t, a1[k], '--', color='0.35', lw=1.0, label='Executed, projected plan')
