@@ -29,13 +29,9 @@ here projects each plan onto the reachable set of a kinematic vehicle model, sta
 from the current speed and course angle, and passes the projected plan to a tracking
 controller. The planner is not retrained.
 
-```
-                                   vehicle state (v, ψ, a, ω)
-                                              │
-  images ─► learned planner ─► plan Ŷ ─► kinematic projection ─► plan Y* ─► tracking controller
-           (frozen)                     (box on a, κ; soft lateral          (controller-in-the-loop
-                                         acceleration and jerk)              evaluation)
-```
+<p align="center">
+  <img src="assets/fig_architecture.png" width="100%" alt="System overview">
+</p>
 
 The code answers when this projection helps:
 
