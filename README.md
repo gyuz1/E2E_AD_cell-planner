@@ -14,7 +14,7 @@
 ## Table of Contents
 - [Introduction](#introduction)
 - [Main Results](#main-results)
-- [Getting Started](#getting-started)
+- [Code](#code)
 - [Dataset](#dataset)
 - [Acknowledgement](#acknowledgement)
 - [Citation](#citation)
@@ -54,34 +54,11 @@ of the measured state.
 | Projected | 0.204 | **0.034** | **0.16** |
 | Projected + selector | **0.190** | 0.038 | 0.23 |
 
-All numbers of the paper are stored in [`analysis/results/`](analysis/results).
 
-## Getting Started
-
-**Installation**
-```bash
-git clone https://github.com/gyuz1/E2E_AD_cell-planner.git
-cd E2E_AD_cell-planner
-pip install -r requirements.txt
-```
-
-**Input.** The scripts read the outputs of a trained planner as `.npz` files with the fields
-`pred` (learned plan, 6 × 2), `gt` (recorded future positions), `ego_lcf` (measured state),
-`state_pred` (network-estimated state), `mode` (command), `scene` and `frame`.
-
-**Evaluation**
-```bash
-# planning error and cross-validated weights (run first)
-python analysis/final_tables.py <heldout.npz> cell105
-# error decomposition and transmission of state errors
-python analysis/deep_analysis.py <heldout.npz> <train.npz> cell105
-# controller-in-the-loop evaluation
-python analysis/closedloop_sim.py <heldout.npz> cell105
-# run-time weight selector
-python analysis/selector_cv.py <heldout.npz> cell105
-```
-`cell105`, `cell15` and `nocell` select the planner. The projection solver is
-[`analysis/fast_projection.py`](analysis/fast_projection.py).
+## Code
+The projection solver is [`analysis/fast_projection.py`](analysis/fast_projection.py), and all
+numbers of the paper are stored in [`analysis/results/`](analysis/results). The scripts that
+produced each table and figure:
 
 | Paper | Script |
 | :---: | :--- |
@@ -99,8 +76,7 @@ All experiments use the **ETRI E2E Driving Dataset** provided by the
 [Electronics and Telecommunications Research Institute (ETRI)](https://www.etri.re.kr).
 It contains 376 driving scenes recorded at 10 Hz with six surround-view cameras, recorded
 vehicle motion and future trajectories. We split it by scene into 301 training and 75
-held-out scenes. The dataset is not redistributed in this repository; please obtain it from
-ETRI and follow its terms of use.
+held-out scenes. The dataset is not redistributed in this repository.
 
 ## Acknowledgement
 The learned planners in this work are built on [VAD](https://github.com/hustvl/VAD) and
