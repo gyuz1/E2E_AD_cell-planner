@@ -17,7 +17,6 @@
 - [Code](#code)
 - [Dataset](#dataset)
 - [Acknowledgement](#acknowledgement)
-- [Citation](#citation)
 
 ## Introduction
 Learned end-to-end planners predict future waypoints directly from sensor data, but their
@@ -82,14 +81,3 @@ held-out scenes. The dataset is not redistributed in this repository.
 The learned planners in this work are built on [VAD](https://github.com/hustvl/VAD) and
 [LAW](https://github.com/BraveGroup/LAW). We thank the authors for releasing their code, and
 ETRI for providing the dataset.
-
-## Citation
-If you find this work useful, please cite:
-
-```bibtex
-@article{kinematicprojection2026,
-  title   = {Kinematic Projection of Learned Trajectory Plans: Conditions for Improving Planning and Execution Accuracy},
-  journal = {International Journal of Control, Automation, and Systems},
-  year    = {2026}
-}
-```
