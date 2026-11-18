@@ -18,6 +18,7 @@ Submitted to the *International Journal of Control, Automation, and Systems* (IJ
 ## Table of Contents
 - [Introduction](#introduction)
 - [Main Results](#main-results)
+- [Getting Started](#getting-started)
 - [Demo](#demo)
 - [Repository Structure](#repository-structure)
 - [Dataset](#dataset)
@@ -59,15 +60,32 @@ of the measured state.
 | Projected + selector | **0.190** | 0.038 | 0.23 |
 
 
+## Getting Started
+- [Installation](docs/install.md)
+- [Data preparation](docs/data_preparation.md)
+- [Training and inference](docs/train_eval.md)
+
 ## Demo
 The three held-out windows shown in the paper (lane keeping, lane change and turn) are
-included in [`demo/`](demo) with their front-camera images. The demo projects the learned
-plan of each window from the measured state and draws the result.
+included in [`demo/`](demo) with all six camera images of the three input frames.
+
+**Planner inference** (needs the installation and a planner checkpoint):
 
 ```bash
-pip install -r requirements.txt
-python demo/demo.py
+mkdir -p demo/output
+python tools/evaluate.py configs/eval/cell105.py ckpts/cell105.pth \
+    --ann-file demo/demo_infos.pkl --fp16 --bev-only-history --select-cell-by-tp \
+    --stride 5 --warmup-windows 0 --dump-npz demo/output/cell105.npz
 ```
+
+**Kinematic projection** (CPU only, `pip install -r requirements.txt`):
+
+```bash
+python demo/demo.py --planner-output demo/output/cell105_3frame.npz
+```
+
+Without `--planner-output`, `demo.py` uses the planner outputs stored in the repository.
+Expected output:
 
 ```
 Lane keeping  v0 =  15.1 m/s   E_plan: learned 0.416 m -> projected 0.168 m
@@ -77,17 +95,21 @@ Turn          v0 =   5.1 m/s   E_plan: learned 0.524 m -> projected 0.381 m
 
 ## Repository Structure
 ```
+configs/                  stage-1 and stage-2 training configs, eval/ for inference
+projects/mmdet3d_plugin/  model code (BEV encoder, world model, planner heads)
+tools/
+├── train.py, dist_train.sh
+├── evaluate.py           planner inference on held-out windows
+├── data_converter/       annotation files and the 301/75 split
+└── cache/                image cache for training
 analysis/
-├── fast_projection.py    # kinematic projection solver
-├── closedloop_sim.py     # controller-in-the-loop evaluation
-├── selector_cv.py        # run-time weight selector
-├── ...                   # analysis and plotting scripts
-└── results/              # measured results reported in the paper
-demo/
-├── demo.py               # projection of the three example windows
-├── demo_windows.npz      # learned plans, recorded trajectories and vehicle states
-├── cameras.json          # front-camera calibration
-└── images/               # front-camera images
+├── fast_projection.py    kinematic projection solver
+├── closedloop_sim.py     controller-in-the-loop evaluation
+├── selector_cv.py        run-time weight selector
+├── ...                   analysis and plotting scripts
+└── results/              measured results reported in the paper
+demo/                     three example windows with camera images
+docs/                     installation, data preparation, training
 ```
 
 ## Dataset
@@ -96,7 +118,7 @@ All experiments use the **ETRI E2E Driving Dataset** provided by the
 It contains 376 driving scenes recorded at 10 Hz with six surround-view cameras, recorded
 vehicle motion and future trajectories. We split it by scene into 301 training and 75
 held-out scenes. The dataset is not redistributed in this repository; only the three example windows used in
-the paper are included for the demo.
+the paper (all cameras of their three input frames) are included for the demo.
 
 ## Acknowledgement
 The learned planners in this work are built on [VAD](https://github.com/hustvl/VAD) and

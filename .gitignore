@@ -2,7 +2,13 @@ __pycache__/
 *.npz
 *.npy
 *.pkl
+!demo/demo_windows.npz
+!demo/demo_infos.pkl
 figures/*.pdf
 figures/*.png
 demo/output/
-!demo/demo_windows.npz
+ckpts/
+work_dirs/
+outputs/
+data/*
+!data/splits/

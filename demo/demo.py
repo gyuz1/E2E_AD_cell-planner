@@ -5,7 +5,11 @@ state with the cross-validated weights (rho_a, rho_kappa) = (5, 5). The planning
 before and after projection is printed, and the plans are drawn on the front-camera image
 together with their speed profiles (demo/output/demo.png).
 
-usage: python demo/demo.py
+usage: python demo/demo.py [--planner-output demo/output/cell105_3frame.npz]
+
+By default the learned plans stored in demo/demo_windows.npz are used. With
+--planner-output, the plans come from your own run of tools/evaluate.py on
+demo/demo_infos.pkl (see README).
 """
 import os, sys, json, numpy as np, matplotlib
 matplotlib.use('Agg'); import matplotlib.pyplot as plt
@@ -16,7 +20,17 @@ from trackability_precheck import U
 from smoothing_baseline import off
 from kinematics import quantities
 
-d = np.load(os.path.join(HERE, 'demo_windows.npz'))
+import argparse
+ap = argparse.ArgumentParser()
+ap.add_argument('--planner-output', default=None, help='npz written by tools/evaluate.py --dump-npz')
+args = ap.parse_args()
+d = dict(np.load(os.path.join(HERE, 'demo_windows.npz')))
+if args.planner_output:
+    o = np.load(args.planner_output)
+    for j in range(len(d['name'])):
+        k = np.where((o['scene'] == d['scene'][j]) & (o['frame'] == d['frame'][j]))[0][0]
+        for key in ('pred', 'gt', 'ego_lcf', 'state_pred'):
+            d[key][j] = o[key][k]
 cams = json.load(open(os.path.join(HERE, 'cameras.json')))
 
 
