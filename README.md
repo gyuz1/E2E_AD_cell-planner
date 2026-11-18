@@ -14,6 +14,7 @@
 ## Table of Contents
 - [Introduction](#introduction)
 - [Main Results](#main-results)
+- [Demo](#demo)
 - [Repository Structure](#repository-structure)
 - [Dataset](#dataset)
 - [Acknowledgement](#acknowledgement)
@@ -54,6 +55,22 @@ of the measured state.
 | Projected + selector | **0.190** | 0.038 | 0.23 |
 
 
+## Demo
+The three held-out windows shown in the paper (lane keeping, lane change and turn) are
+included in [`demo/`](demo) with their front-camera images. The demo projects the learned
+plan of each window from the measured state and draws the result.
+
+```bash
+pip install -r requirements.txt
+python demo/demo.py
+```
+
+```
+Lane keeping  v0 =  15.1 m/s   E_plan: learned 0.416 m -> projected 0.168 m
+Lane change   v0 =   9.0 m/s   E_plan: learned 0.547 m -> projected 0.339 m
+Turn          v0 =   5.1 m/s   E_plan: learned 0.524 m -> projected 0.381 m
+```
+
 ## Repository Structure
 ```
 analysis/
@@ -62,6 +79,11 @@ analysis/
 ├── selector_cv.py        # run-time weight selector
 ├── ...                   # analysis and plotting scripts
 └── results/              # measured results reported in the paper
+demo/
+├── demo.py               # projection of the three example windows
+├── demo_windows.npz      # learned plans, recorded trajectories and vehicle states
+├── cameras.json          # front-camera calibration
+└── images/               # front-camera images
 ```
 
 ## Dataset
@@ -69,7 +91,8 @@ All experiments use the **ETRI E2E Driving Dataset** provided by the
 [Electronics and Telecommunications Research Institute (ETRI)](https://www.etri.re.kr).
 It contains 376 driving scenes recorded at 10 Hz with six surround-view cameras, recorded
 vehicle motion and future trajectories. We split it by scene into 301 training and 75
-held-out scenes. The dataset is not redistributed in this repository.
+held-out scenes. The dataset is not redistributed in this repository; only the three example windows used in
+the paper are included for the demo.
 
 ## Acknowledgement
 The learned planners in this work are built on [VAD](https://github.com/hustvl/VAD) and
