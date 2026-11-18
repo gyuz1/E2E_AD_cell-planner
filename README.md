@@ -15,9 +15,6 @@ Submitted to the *International Journal of Control, Automation, and Systems* (IJ
 
 </div>
 
-## News
-* **` Nov. 2026`:** We release the projection solver, the analysis scripts and all measured results of the paper.
-
 ## Table of Contents
 - [Introduction](#introduction)
 - [Main Results](#main-results)
