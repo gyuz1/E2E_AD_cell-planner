@@ -14,7 +14,7 @@
 ## Table of Contents
 - [Introduction](#introduction)
 - [Main Results](#main-results)
-- [Code](#code)
+- [Repository Structure](#repository-structure)
 - [Dataset](#dataset)
 - [Acknowledgement](#acknowledgement)
 
@@ -54,21 +54,15 @@ of the measured state.
 | Projected + selector | **0.190** | 0.038 | 0.23 |
 
 
-## Code
-The projection solver is [`analysis/fast_projection.py`](analysis/fast_projection.py), and all
-numbers of the paper are stored in [`analysis/results/`](analysis/results). The scripts that
-produced each table and figure:
-
-| Paper | Script |
-| :---: | :--- |
-| Table 1 | `final_tables.py`, `weight_cv.py` |
-| Table 2 | `deep_analysis.py`, `split_terms.py` |
-| Table 3 | `split_terms.py` |
-| Table 4 | `weight_vs_noise.py` |
-| Table 5 | `selector_cv.py` |
-| Table 6 | `closedloop_sim.py`, `stats_extra.py`, `selector_closedloop.py` |
-| Table 7 | `locked_test.py`, `locked_repeat.py` |
-| Fig. 4–7 | `plot_consistency_b.py`, `plot_qualitative.py`, `plot_tradeoff.py`, `plot_closedloop.py` |
+## Repository Structure
+```
+analysis/
+├── fast_projection.py    # kinematic projection solver
+├── closedloop_sim.py     # controller-in-the-loop evaluation
+├── selector_cv.py        # run-time weight selector
+├── ...                   # analysis and plotting scripts
+└── results/              # measured results reported in the paper
+```
 
 ## Dataset
 All experiments use the **ETRI E2E Driving Dataset** provided by the
