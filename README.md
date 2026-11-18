@@ -13,9 +13,9 @@
 
 ## Table of Contents
 - [Introduction](#introduction)
-- [Qualitative Results](#qualitative-results)
 - [Main Results](#main-results)
 - [Getting Started](#getting-started)
+- [Dataset](#dataset)
 - [Acknowledgement](#acknowledgement)
 - [Citation](#citation)
 
@@ -27,22 +27,13 @@ plan is mapped onto the set of trajectories that a kinematic vehicle model can r
 the current speed and course angle, under bounds on acceleration and curvature. Instead of
 proposing a new planner, we study **when this projection helps and when it hurts**. With the
 measured vehicle state, the projection reduces the planning error of three learned planners
-by 22–26% and the error of the executed motion by 10–16%; under scene cross-validation, a run-time weight selector lowers
-both further. Most of the gain comes from correcting the speed along the path, and it shrinks
-when the planner's own state estimate is used instead of the measured state.
+by 22–26% and the error of the executed motion by 10–16%; under scene cross-validation, a
+run-time weight selector lowers both further. Most of the gain comes from correcting the
+speed along the path, and it shrinks when the planner's own state estimate is used instead
+of the measured state.
 
-<div align="center"><b>Overview. The frozen planner's plan is projected onto the reachable set of a kinematic vehicle model before it is passed to the tracking controller.</b>
-<img src="assets/fig_architecture.png" />
-<b>Reachable set. The learned plan starts faster than the vehicle can reach; the projection moves its waypoints into the set.</b>
-<img src="assets/fig_reachable.png" width="70%" />
-</div>
-
-## Qualitative Results
 <div align="center">
-<b>Learned plan, projected plan and recorded driving on held-out scenes: lane keeping, lane change and turn.</b>
-<img src="assets/fig_qualitative.png" width="55%" />
-<b>The same window driven by the same controller with the learned plan and with the projected plan.</b>
-<img src="assets/fig_example.png" width="55%" />
+<img src="assets/fig_architecture.png" />
 </div>
 
 ## Main Results
@@ -63,11 +54,6 @@ when the planner's own state estimate is used instead of the measured state.
 | Projected | 0.204 | **0.034** | **0.16** |
 | Projected + selector | **0.190** | 0.038 | 0.23 |
 
-<div align="center">
-<b>Easier tracking does not imply a more accurate executed motion; only the cross-validated projection and the selector improve both.</b>
-<img src="assets/fig_tradeoff.png" width="45%" />
-</div>
-
 All numbers of the paper are stored in [`analysis/results/`](analysis/results).
 
 ## Getting Started
@@ -79,11 +65,9 @@ cd E2E_AD_cell-planner
 pip install -r requirements.txt
 ```
 
-**Data.** Experiments use the ETRI E2E Driving Dataset (376 scenes, split by scene into 301
-training and 75 held-out scenes). The scripts read the outputs of a trained planner on these
-scenes as `.npz` files with the fields `pred` (learned plan, 6 × 2), `gt` (recorded future
-positions), `ego_lcf` (measured state), `state_pred` (network-estimated state), `mode`
-(command), `scene` and `frame`.
+**Input.** The scripts read the outputs of a trained planner as `.npz` files with the fields
+`pred` (learned plan, 6 × 2), `gt` (recorded future positions), `ego_lcf` (measured state),
+`state_pred` (network-estimated state), `mode` (command), `scene` and `frame`.
 
 **Evaluation**
 ```bash
@@ -110,9 +94,18 @@ python analysis/selector_cv.py <heldout.npz> cell105
 | Table 7 | `locked_test.py`, `locked_repeat.py` |
 | Fig. 4–7 | `plot_consistency_b.py`, `plot_qualitative.py`, `plot_tradeoff.py`, `plot_closedloop.py` |
 
+## Dataset
+All experiments use the **ETRI E2E Driving Dataset** provided by the
+[Electronics and Telecommunications Research Institute (ETRI)](https://www.etri.re.kr).
+It contains 376 driving scenes recorded at 10 Hz with six surround-view cameras, recorded
+vehicle motion and future trajectories. We split it by scene into 301 training and 75
+held-out scenes. The dataset is not redistributed in this repository; please obtain it from
+ETRI and follow its terms of use.
+
 ## Acknowledgement
 The learned planners in this work are built on [VAD](https://github.com/hustvl/VAD) and
-[LAW](https://github.com/BraveGroup/LAW). We thank the authors for releasing their code.
+[LAW](https://github.com/BraveGroup/LAW). We thank the authors for releasing their code, and
+ETRI for providing the dataset.
 
 ## Citation
 If you find this work useful, please cite:
