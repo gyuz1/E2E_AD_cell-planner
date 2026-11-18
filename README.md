@@ -2,9 +2,8 @@
 <h1>Kinematic Projection</h1>
 <h3>Kinematic Projection of Learned Trajectory Plans: Conditions for Improving Planning and Execution Accuracy</h3>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)&nbsp;
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)&nbsp;
-![CPU only](https://img.shields.io/badge/Hardware-CPU%20only-lightgrey.svg)
+[![Weights](https://img.shields.io/badge/🤗%20HuggingFace-Weights-yellow)](https://huggingface.co/gyuz/2026_ETRI_Autonomous_Driving_Challenge)&nbsp;
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 </div>
 
