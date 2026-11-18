@@ -45,9 +45,20 @@ mkdir -p ckpts
 wget -P ckpts https://download.pytorch.org/models/resnet50-19c8e357.pth
 ```
 
-Stage 1 starts from the LAW checkpoint pretrained on nuScenes, released by the
-[LAW](https://github.com/BraveGroup/LAW) authors; save it as `ckpts/law_pretrained_nus.pth`.
-The weights of the three planners evaluated in the paper are linked in the README.
+All checkpoints are on [HuggingFace](https://huggingface.co/gyuz/kinematic-projection):
+
+```bash
+huggingface-cli download gyuz/kinematic-projection --local-dir ckpts
+```
+
+| File | Content |
+|---|---|
+| `stage2_split301_10hz_cell105_epoch12.pth` | 105-cell planner |
+| `stage2_split301_10hz_cell15_epoch12.pth` | 15-cell planner |
+| `stage2_split301_10hz_nocell_epoch12.pth` | no-cell baseline |
+| `stage1_split301_10hz_epoch48.pth` | stage 1 |
+| `stage2_init_split301_10hz.pth` | stage-2 initialization (rename to `ckpts/stage2_init.pth` to train stage 2 directly) |
+| `law_pretrained_nus.pth` | LAW checkpoint pretrained on nuScenes, the start of stage 1 ([LAW](https://github.com/BraveGroup/LAW)) |
 
 ## Check
 

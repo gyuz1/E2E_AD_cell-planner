@@ -10,7 +10,7 @@ Department of Electrical and Information Engineering, Seoul National University 
 
 Submitted to the *International Journal of Control, Automation, and Systems* (IJCAS)
 
-[![Weights](https://img.shields.io/badge/🤗%20HuggingFace-Weights-yellow)](https://huggingface.co/gyuz/2026_ETRI_Autonomous_Driving_Challenge)&nbsp;
+[![Weights](https://img.shields.io/badge/🤗%20HuggingFace-Weights-yellow)](https://huggingface.co/gyuz/kinematic-projection)&nbsp;
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 </div>
@@ -61,6 +61,8 @@ of the measured state.
 
 
 ## Getting Started
+Checkpoints of the three planners are on [HuggingFace](https://huggingface.co/gyuz/kinematic-projection).
+
 - [Installation](docs/install.md)
 - [Data preparation](docs/data_preparation.md)
 - [Training and inference](docs/train_eval.md)
@@ -73,7 +75,7 @@ included in [`demo/`](demo) with all six camera images of the three input frames
 
 ```bash
 mkdir -p demo/output
-python tools/evaluate.py configs/eval/cell105.py ckpts/cell105.pth \
+python tools/evaluate.py configs/eval/cell105.py ckpts/stage2_split301_10hz_cell105_epoch12.pth \
     --ann-file demo/demo_infos.pkl --fp16 --bev-only-history --select-cell-by-tp \
     --stride 5 --warmup-windows 0 --dump-npz demo/output/cell105.npz
 ```

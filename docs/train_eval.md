@@ -48,7 +48,7 @@ planning L2 and, with `--dump-npz`, saves every window's plan, recorded trajecto
 state and estimated state. These files are the input of `analysis/`.
 
 ```bash
-python tools/evaluate.py configs/eval/cell105.py ckpts/cell105.pth \
+python tools/evaluate.py configs/eval/cell105.py ckpts/stage2_split301_10hz_cell105_epoch12.pth \
     --ann-file data/etri/split_301_75/vad_etri_infos_temporal_val_split.pkl \
     --fp16 --bev-only-history --select-cell-by-tp --stride 5 \
     --dump-npz outputs/cell105.npz
