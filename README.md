@@ -2,6 +2,12 @@
 <h1>Kinematic Projection</h1>
 <h3>Kinematic Projection of Learned Trajectory Plans: Conditions for Improving Planning and Execution Accuracy</h3>
 
+Yongseok Park<sup>*</sup>, Gyuwan Choi<sup>*</sup>, Hyeonseok Kim, Yeejin Lee<sup>:email:</sup>
+
+Department of Electrical and Information Engineering, Seoul National University of Science and Technology
+
+(<sup>*</sup>) equal contribution, (<sup>:email:</sup>) corresponding author
+
 [![Weights](https://img.shields.io/badge/🤗%20HuggingFace-Weights-yellow)](https://huggingface.co/gyuz/2026_ETRI_Autonomous_Driving_Challenge)&nbsp;
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
